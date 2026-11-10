@@ -1,0 +1,39 @@
+# Жергілікті әзірлеу және CI smoke-тест: `docker compose up --build`
+# → http://localhost:8000/docs
+# Production/песочницада бұл файл қолданылмайды: дерекқор мен айнымалыларды платформа береді.
+
+services:
+  app:
+    build: .
+    image: ${APP_IMAGE:-cargo-app:local}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-cargo}
+      DB_USER: ${DB_USER:-cargo}
+      DB_PASSWORD: ${DB_PASSWORD:-cargo-local}
+      # Тек жергілікті әзірлеуге арналған кілт
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-local-dev-only-change-me}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-cargo}
+      POSTGRES_USER: ${DB_USER:-cargo}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cargo-local}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
